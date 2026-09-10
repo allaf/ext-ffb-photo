@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "FFBoxe - Télécharger la photo",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Télécharge les photos FFBoxe localement ou les synchronise avec Google Sheets.",
   "permissions": ["menus", "downloads", "notifications", "storage"],
   "host_permissions": [
@@ -36,7 +36,14 @@
   "browser_specific_settings": {
     "gecko": {
       "id": "ffboxe-photo-downloader@rapb-boxe.fr",
-      "strict_min_version": "121.0"
+      "strict_min_version": "140.0",
+      "data_collection_permissions": {
+        "required": [
+          "authenticationInfo",
+          "personallyIdentifyingInfo",
+          "websiteContent"
+        ]
+      }
     }
   }
 }
