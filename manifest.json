@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "FFBoxe - Télécharger la photo",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Télécharge les photos FFBoxe localement ou les synchronise avec Google Sheets.",
   "permissions": ["menus", "downloads", "notifications", "storage"],
   "host_permissions": [

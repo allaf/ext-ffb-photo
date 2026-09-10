@@ -1,6 +1,3 @@
-https://script.google.com/macros/s/AKfycbw_yRZSimgKHlWh/exec?action=pendingJobs&token=f364ebe4-c2f0-426b-ac52-8723e3f56cdac0255901-cf14-4d2b-a358-141f6ad0cdf0/exec?action=pendingJobs&token=f364ebe4-c2f0-426b-ac52-8723e3f56cdac0255901-cf14-4d2b-a358-141f6ad0cdf0
-
-
 # FFBoxe - Photos licenciés
 
 Le clic droit ajoute l’entrée **Télécharger la photo du licencié** au

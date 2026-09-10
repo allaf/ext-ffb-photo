@@ -1,56 +1,375 @@
 const MENU_ID = "download-ffboxe-licensee-picture";
-const PROFILE_URL_PATTERN = "https://extranet.ffboxe.com/personnes/fiche/*/*";
+const PROFILE_URL_PATTERN =
+  "https://extranet.ffboxe.com/personnes/fiche/*/infos*";
+const LOGIN_URL = "https://extranet.ffboxe.com/auth/login";
+const MAX_PARALLEL_JOBS = 3;
+const APPS_SCRIPT_TIMEOUT_MS = 15000;
+let pollingInProgress = false;
 
 browser.runtime.onInstalled.addListener(async () => {
-    await browser.menus.removeAll();
+  await browser.menus.removeAll();
 
-    browser.menus.create({
-        id: MENU_ID,
-        title: "=====> Télécharger la photo du licencié",
-        contexts: ["page", "image"],
-        documentUrlPatterns: [PROFILE_URL_PATTERN]
-    });
+  browser.menus.create({
+    id: MENU_ID,
+    title: "Télécharger la photo du licencié",
+    contexts: ["page", "image"],
+    documentUrlPatterns: [PROFILE_URL_PATTERN]
+  });
 });
 
 browser.menus.onClicked.addListener(async (info, tab) => {
-    if (info.menuItemId !== MENU_ID || !tab?.id) {
-        return;
+  if (info.menuItemId !== MENU_ID || !tab?.id) {
+    return;
+  }
+
+  try {
+    const picture = await browser.tabs.sendMessage(tab.id, {
+      type: "GET_LICENSEE_PICTURE"
+    });
+
+    if (!picture?.ok) {
+      throw new Error(picture?.error || "Photo introuvable sur cette fiche.");
     }
 
-    try {
-        const picture = await browser.tabs.sendMessage(tab.id, {
-            type: "GET_LICENSEE_PICTURE"
-        });
+    await browser.downloads.download({
+      url: picture.imageUrl,
+      filename: picture.filename,
+      conflictAction: "overwrite",
+      saveAs: false
+    });
 
-        if (!picture?.ok) {
-            throw new Error(picture?.error || "Photo introuvable sur cette fiche.");
-        }
-
-        await browser.downloads.download({
-            url: picture.imageUrl,
-            filename: picture.filename,
-            conflictAction: "overwrite",
-            saveAs: false
-        });
-
-        await notify(
-            "Photo téléchargée",
-            `${picture.filename} a été enregistré dans Téléchargements/FFBoxe.`
-        );
-    } catch (error) {
-        console.error("Échec du téléchargement FFBoxe", error);
-        await notify(
-            "Téléchargement impossible",
-            error?.message || "Une erreur inconnue est survenue."
-        );
-    }
+    await notify(
+      "Photo téléchargée",
+      `${picture.filename} a été enregistré dans Téléchargements/FFBoxe.`
+    );
+  } catch (error) {
+    console.error("Échec du téléchargement FFBoxe", error);
+    await notify(
+      "Téléchargement impossible",
+      error?.message || "Une erreur inconnue est survenue."
+    );
+  }
 });
 
-async function notify(title, message) {
-    await browser.notifications.create({
-        type: "basic",
-        iconUrl: browser.runtime.getURL("icons/icon.svg"),
-        title,
-        message
+browser.runtime.onMessage.addListener((message) => {
+  if (message?.type === "POLL_SHEET_JOBS") {
+    return pollSheetJobs();
+  }
+
+  if (message?.type === "TEST_APPS_SCRIPT") {
+    return testAppsScriptConnection(message.settings);
+  }
+
+  return undefined;
+});
+
+async function pollSheetJobs() {
+  if (pollingInProgress) {
+    return { ok: true, skipped: true };
+  }
+
+  pollingInProgress = true;
+
+  try {
+    const settings = await loadSettings();
+
+    if (!settings.appsScriptUrl || !settings.apiToken) {
+      return { ok: false, configurationMissing: true };
+    }
+
+    const pending = await getPendingJobs(settings);
+    const jobs = pending.slice(0, MAX_PARALLEL_JOBS);
+
+    await Promise.all(
+      jobs.map((job) => processSheetJob(job, settings))
+    );
+
+    return { ok: true, processed: jobs.length };
+  } catch (error) {
+    console.error("Échec de la synchronisation Google Sheet", error);
+    return { ok: false, error: error.message };
+  } finally {
+    pollingInProgress = false;
+  }
+}
+
+async function processSheetJob(pendingJob, settings) {
+  let claimedJob;
+
+  try {
+    const claimResponse = await postAppsScript(settings, {
+      action: "claimJob",
+      requestId: pendingJob.requestId
     });
+
+    claimedJob = claimResponse.job;
+
+    const picture = await fetchLicenseePicture(
+      claimedJob.userId,
+      settings
+    );
+
+    await postAppsScript(settings, {
+      action: "uploadPicture",
+      requestId: claimedJob.requestId,
+      userId: claimedJob.userId,
+      mimeType: picture.mimeType,
+      imageBase64: picture.imageBase64
+    });
+  } catch (error) {
+    console.error(`Échec de la demande ${pendingJob.requestId}`, error);
+
+    const requestId = claimedJob?.requestId || pendingJob.requestId;
+
+    try {
+      await postAppsScript(settings, {
+        action: "failJob",
+        requestId,
+        error: error.message
+      });
+    } catch (reportError) {
+      console.error("Impossible de signaler l’erreur à Apps Script", reportError);
+    }
+
+    await notify(
+      "Synchronisation impossible",
+      `Licence ${pendingJob.userId} : ${error.message}`
+    );
+  }
+}
+
+async function getPendingJobs(settings) {
+  const url = new URL(settings.appsScriptUrl);
+  url.searchParams.set("action", "pendingJobs");
+  url.searchParams.set("token", settings.apiToken);
+
+  const response = await fetchWithTimeout(url.toString(), {
+    method: "GET",
+    credentials: "include",
+    redirect: "follow",
+    cache: "no-store"
+  });
+
+  const data = await parseJsonResponse(response);
+
+  if (!data.success) {
+    throw new Error(data.error || "Apps Script a refusé la demande.");
+  }
+
+  return Array.isArray(data.jobs) ? data.jobs : [];
+}
+
+async function postAppsScript(settings, payload) {
+  const response = await fetchWithTimeout(settings.appsScriptUrl, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "text/plain;charset=utf-8"
+    },
+    body: JSON.stringify({
+      ...payload,
+      token: settings.apiToken
+    }),
+    redirect: "follow"
+  });
+
+  const data = await parseJsonResponse(response);
+
+  if (!data.success) {
+    throw new Error(data.error || "Erreur retournée par Apps Script.");
+  }
+
+  return data;
+}
+
+async function fetchWithTimeout(url, options) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(
+    () => controller.abort(),
+    APPS_SCRIPT_TIMEOUT_MS
+  );
+
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+  } catch (error) {
+    if (error.name === "AbortError") {
+      throw new Error(
+        "Apps Script ne répond pas après 15 secondes. Vérifie le déploiement et les autorisations."
+      );
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function parseJsonResponse(response) {
+  const text = await response.text();
+
+  if (!response.ok) {
+    throw new Error(`Erreur HTTP ${response.status} : ${text.slice(0, 200)}`);
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    throw new Error(
+      "La réponse Apps Script n’est pas du JSON. Vérifie l’URL /exec et les droits du déploiement."
+    );
+  }
+}
+
+async function fetchLicenseePicture(userId, settings) {
+  const profileUrl =
+    `https://extranet.ffboxe.com/personnes/fiche/${encodeURIComponent(userId)}/infos`;
+
+  let pageResponse = await fetch(profileUrl, {
+    credentials: "include",
+    redirect: "follow",
+    cache: "no-store"
+  });
+
+  let pageHtml = await pageResponse.text();
+
+  if (isLoginPage(pageResponse.url, pageHtml)) {
+    await loginToFFBoxe(settings);
+
+    pageResponse = await fetch(profileUrl, {
+      credentials: "include",
+      redirect: "follow",
+      cache: "no-store"
+    });
+    pageHtml = await pageResponse.text();
+  }
+
+  if (isLoginPage(pageResponse.url, pageHtml)) {
+    throw new Error("Connexion FFB refusée. Vérifie le login et le mot de passe.");
+  }
+
+  const document = new DOMParser().parseFromString(pageHtml, "text/html");
+  const image = document.querySelector("img.border-white.rounded-circle");
+  const source = image?.getAttribute("src");
+
+  if (!source) {
+    throw new Error("Photo introuvable sur la fiche licencié.");
+  }
+
+  if (source.includes("/elicence-core")) {
+    throw new Error("Ce licencié utilise la photo par défaut.");
+  }
+
+  const imageUrl = new URL(source, pageResponse.url).href;
+  const imageResponse = await fetch(imageUrl, {
+    credentials: "include",
+    redirect: "follow",
+    cache: "no-store"
+  });
+
+  if (!imageResponse.ok) {
+    throw new Error(`Téléchargement de l’image refusé (${imageResponse.status}).`);
+  }
+
+  const blob = await imageResponse.blob();
+
+  if (!blob.type.startsWith("image/")) {
+    throw new Error("Le fichier reçu n’est pas une image.");
+  }
+
+  return {
+    mimeType: blob.type || "image/jpeg",
+    imageBase64: await blobToBase64(blob)
+  };
+}
+
+async function loginToFFBoxe(settings) {
+  if (!settings.username || !settings.password) {
+    throw new Error("Login ou mot de passe FFB absent des préférences.");
+  }
+
+  const loginPageResponse = await fetch(LOGIN_URL, {
+    credentials: "include",
+    redirect: "follow",
+    cache: "no-store"
+  });
+  const loginHtml = await loginPageResponse.text();
+  const document = new DOMParser().parseFromString(loginHtml, "text/html");
+  const csrfToken = document
+    .querySelector('meta[name="csrf-token"]')
+    ?.getAttribute("content");
+
+  if (!csrfToken) {
+    throw new Error("Jeton de connexion FFB introuvable.");
+  }
+
+  const body = new URLSearchParams({
+    username: settings.username,
+    password: settings.password,
+    _token: csrfToken
+  });
+
+  const response = await fetch(LOGIN_URL, {
+    method: "POST",
+    credentials: "include",
+    redirect: "follow",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      "X-CSRF-TOKEN": csrfToken
+    },
+    body: body.toString()
+  });
+  const responseHtml = await response.text();
+
+  if (isLoginPage(response.url, responseHtml)) {
+    throw new Error("Échec de la connexion FFB.");
+  }
+}
+
+function isLoginPage(url, html) {
+  return (
+    url.includes("/auth/login") ||
+    /<form[^>]+(?:action=["'][^"']*\/auth\/login|id=["'][^"']*login)/i.test(html)
+  );
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Lecture de l’image impossible."));
+    reader.onload = () => {
+      const dataUrl = String(reader.result || "");
+      resolve(dataUrl.substring(dataUrl.indexOf(",") + 1));
+    };
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function loadSettings() {
+  return browser.storage.local.get({
+    appsScriptUrl: "",
+    apiToken: "",
+    username: "",
+    password: ""
+  });
+}
+
+async function testAppsScriptConnection(settings) {
+  try {
+    const jobs = await getPendingJobs(settings);
+    return { ok: true, pendingJobs: jobs.length };
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+}
+
+async function notify(title, message) {
+  await browser.notifications.create({
+    type: "basic",
+    iconUrl: browser.runtime.getURL("icons/icon.svg"),
+    title,
+    message
+  });
 }
