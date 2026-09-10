@@ -29,8 +29,7 @@ fonctionnement sur l’extranet.
 1. Déployer le projet Apps Script comme application web.
 2. Dans Firefox, ouvrir `about:addons`.
 3. Ouvrir les préférences de l’extension.
-4. Renseigner l’URL Apps Script terminant par `/exec`, le jeton API, le login
-   FFB et le mot de passe.
+4. Renseigner l’URL Apps Script terminant par `/exec` et le jeton API.
 5. Cliquer sur **Enregistrer**, puis sur **Tester Apps Script**.
 6. Recharger le Google Sheet après l’installation de l’extension.
 
@@ -38,9 +37,10 @@ Lorsque le Google Sheet est ouvert, l’extension vérifie toutes les trois
 secondes les demandes créées depuis le menu **Photos licenciés**. Elle traite
 au maximum trois photos simultanément.
 
-La session Firefox existante est utilisée en priorité. Si elle a expiré,
-l’extension tente une connexion automatique avec les identifiants enregistrés
-localement dans ses préférences.
+L’extension utilise uniquement la session FFBoxe déjà ouverte dans Firefox. Si
+elle a expiré, il faut se reconnecter sur l’extranet puis relancer la demande.
+L’extension ne stocke pas les identifiants FFBoxe et ne tente aucune connexion
+automatique.
 
 Le clic droit continue d’enregistrer uniquement en local. Il ne crée aucun
 fichier Drive et ne modifie pas le Google Sheet.
