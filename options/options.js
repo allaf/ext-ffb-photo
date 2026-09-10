@@ -43,9 +43,7 @@ testButton.addEventListener("click", async () => {
 async function restoreSettings() {
   const settings = await browser.storage.local.get({
     appsScriptUrl: "",
-    apiToken: "",
-    username: "",
-    password: ""
+    apiToken: ""
   });
 
   for (const [key, value] of Object.entries(settings)) {
@@ -61,9 +59,7 @@ function readForm() {
 
   return {
     appsScriptUrl: String(formData.get("appsScriptUrl") || "").trim(),
-    apiToken: String(formData.get("apiToken") || "").trim(),
-    username: String(formData.get("username") || "").trim(),
-    password: String(formData.get("password") || "")
+    apiToken: String(formData.get("apiToken") || "").trim()
   };
 }
 
