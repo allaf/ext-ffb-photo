@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "FFBoxe - Télécharger la photo",
+  "version": "0.1.0",
+  "description": "Télécharge localement la photo depuis une fiche licencié FFBoxe.",
+  "permissions": ["menus", "downloads", "notifications"],
+  "host_permissions": ["https://extranet.ffboxe.com/*"],
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://extranet.ffboxe.com/personnes/fiche/*/*"
+      ],
+      "js": ["content.js"]
+    }
+  ],
+  "icons": {
+    "48": "icons/icon.svg",
+    "96": "icons/icon.svg"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "ffboxe-photo-downloader@rapb-boxe.fr",
+      "strict_min_version": "121.0"
+    }
+  }
+}

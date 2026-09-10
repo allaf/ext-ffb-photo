@@ -1,0 +1,32 @@
+# FFBoxe - Télécharger la photo
+
+Cette première version ajoute l’entrée **Télécharger la photo du licencié** au
+menu contextuel des fiches :
+
+`https://extranet.ffboxe.com/personnes/fiche/{identifiant}/infos`
+
+La photo est enregistrée sans boîte de dialogue dans :
+
+`Téléchargements/FFBoxe/licencie_{identifiant}.jpg`
+
+Si un fichier du même nom existe, il est remplacé.
+
+## Installation temporaire dans Firefox
+
+1. Décompresser l’archive.
+2. Ouvrir `about:debugging#/runtime/this-firefox`.
+3. Cliquer sur **Charger un module complémentaire temporaire**.
+4. Sélectionner le fichier `manifest.json`.
+5. Ouvrir une fiche licencié, faire un clic droit dans la page puis choisir
+   **Télécharger la photo du licencié**.
+
+Une extension temporaire disparaît au redémarrage de Firefox. La signature et
+l’installation permanente pourront être préparées après validation du
+fonctionnement sur l’extranet.
+
+## Limites de cette version
+
+- Aucun accès à Google Sheets ou Google Drive.
+- Aucun identifiant ou mot de passe enregistré.
+- La fiche doit déjà être ouverte et accessible dans Firefox.
+- Le sélecteur actuel de la photo est `img.border-white.rounded-circle`.
