@@ -21,8 +21,8 @@ Les catégories déclarées dans `manifest.json` sont :
 
 Justification à fournir à Mozilla :
 
-> The extension sends the credentials entered by the user only to the FFBoxe
-> extranet to authenticate the requested session. It reads the licensee ID,
+> The extension uses only the FFBoxe session already open in Firefox. It does
+> not request, store or submit FFBoxe credentials. It reads the licensee ID,
 > name and photo from the authorized FFBoxe page and sends them only to the
 > Google Apps Script URL configured by the user, so the image can be stored in
 > the user's own Google Drive and displayed in the user's own Google Sheet. No
@@ -46,8 +46,9 @@ Ouvrir le fichier XPI signé avec Firefox, accepter l’installation, puis
 renseigner dans les préférences de l’extension :
 
 - l’URL du Web App Apps Script ;
-- le jeton API ;
-- le login et le mot de passe FFBoxe.
+- le jeton API.
+
+L’utilisateur doit déjà être connecté à l’extranet FFBoxe dans Firefox.
 
 Une extension non listée ne bénéficie pas automatiquement des mises à jour
 publiées dans le catalogue. Chaque nouvelle version signée devra être
