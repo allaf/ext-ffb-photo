@@ -1,12 +1,12 @@
 const MENU_ID = "download-ffboxe-licensee-picture";
 const PROFILE_URL_PATTERN =
   "https://extranet.ffboxe.com/personnes/fiche/*/infos*";
-const LOGIN_URL = "https://extranet.ffboxe.com/auth/login";
 const MAX_PARALLEL_JOBS = 3;
 const APPS_SCRIPT_TIMEOUT_MS = 15000;
 let pollingInProgress = false;
 
 browser.runtime.onInstalled.addListener(async () => {
+  await browser.storage.local.remove(["username", "password"]);
   await browser.menus.removeAll();
 
   browser.menus.create({
@@ -104,10 +104,7 @@ async function processSheetJob(pendingJob, settings) {
 
     claimedJob = claimResponse.job;
 
-    const picture = await fetchLicenseePicture(
-      claimedJob.userId,
-      settings
-    );
+    const picture = await fetchLicenseePicture(claimedJob.userId);
 
     await postAppsScript(settings, {
       action: "uploadPicture",
@@ -223,31 +220,20 @@ async function parseJsonResponse(response) {
   }
 }
 
-async function fetchLicenseePicture(userId, settings) {
+async function fetchLicenseePicture(userId) {
   const profileUrl =
     `https://extranet.ffboxe.com/personnes/fiche/${encodeURIComponent(userId)}/infos`;
 
-  let pageResponse = await fetch(profileUrl, {
+  const pageResponse = await fetch(profileUrl, {
     credentials: "include",
     redirect: "follow",
     cache: "no-store"
   });
 
-  let pageHtml = await pageResponse.text();
+  const pageHtml = await pageResponse.text();
 
   if (isLoginPage(pageResponse.url, pageHtml)) {
-    await loginToFFBoxe(settings);
-
-    pageResponse = await fetch(profileUrl, {
-      credentials: "include",
-      redirect: "follow",
-      cache: "no-store"
-    });
-    pageHtml = await pageResponse.text();
-  }
-
-  if (isLoginPage(pageResponse.url, pageHtml)) {
-    throw new Error("Connexion FFB refusée. Vérifie le login et le mot de passe.");
+    throw new Error("Session FFBoxe expirée. Connecte-toi au site puis relance la demande.");
   }
 
   const document = new DOMParser().parseFromString(pageHtml, "text/html");
@@ -285,49 +271,6 @@ async function fetchLicenseePicture(userId, settings) {
   };
 }
 
-async function loginToFFBoxe(settings) {
-  if (!settings.username || !settings.password) {
-    throw new Error("Login ou mot de passe FFB absent des préférences.");
-  }
-
-  const loginPageResponse = await fetch(LOGIN_URL, {
-    credentials: "include",
-    redirect: "follow",
-    cache: "no-store"
-  });
-  const loginHtml = await loginPageResponse.text();
-  const document = new DOMParser().parseFromString(loginHtml, "text/html");
-  const csrfToken = document
-    .querySelector('meta[name="csrf-token"]')
-    ?.getAttribute("content");
-
-  if (!csrfToken) {
-    throw new Error("Jeton de connexion FFB introuvable.");
-  }
-
-  const body = new URLSearchParams({
-    username: settings.username,
-    password: settings.password,
-    _token: csrfToken
-  });
-
-  const response = await fetch(LOGIN_URL, {
-    method: "POST",
-    credentials: "include",
-    redirect: "follow",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      "X-CSRF-TOKEN": csrfToken
-    },
-    body: body.toString()
-  });
-  const responseHtml = await response.text();
-
-  if (isLoginPage(response.url, responseHtml)) {
-    throw new Error("Échec de la connexion FFB.");
-  }
-}
-
 function isLoginPage(url, html) {
   return (
     url.includes("/auth/login") ||
@@ -350,9 +293,7 @@ function blobToBase64(blob) {
 async function loadSettings() {
   return browser.storage.local.get({
     appsScriptUrl: "",
-    apiToken: "",
-    username: "",
-    password: ""
+    apiToken: ""
   });
 }
 
