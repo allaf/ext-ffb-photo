@@ -1,0 +1,74 @@
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+  background: Canvas;
+  color: CanvasText;
+}
+
+main {
+  max-width: 680px;
+  margin: 40px auto;
+  padding: 0 20px;
+}
+
+h1 {
+  margin-bottom: 28px;
+}
+
+fieldset {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 24px;
+  padding: 20px;
+  border: 1px solid color-mix(in srgb, CanvasText 25%, transparent);
+  border-radius: 8px;
+}
+
+legend {
+  padding: 0 8px;
+  font-weight: 700;
+}
+
+input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 9px 10px;
+  margin-bottom: 8px;
+  border: 1px solid color-mix(in srgb, CanvasText 30%, transparent);
+  border-radius: 5px;
+  font: inherit;
+}
+
+button {
+  width: fit-content;
+  padding: 9px 16px;
+  border: 0;
+  border-radius: 5px;
+  background: #b91c1c;
+  color: white;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+#status {
+  min-height: 1.5em;
+  font-weight: 600;
+}
+
+.success {
+  color: #16803a;
+}
+
+.error {
+  color: #c62828;
+}

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FFBoxe — Préférences</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main>
+      <h1>FFBoxe — Préférences</h1>
+
+      <form id="settings-form">
+        <fieldset>
+          <legend>Google Apps Script</legend>
+
+          <label for="appsScriptUrl">URL Web App terminant par /exec</label>
+          <input
+            id="appsScriptUrl"
+            name="appsScriptUrl"
+            type="url"
+            placeholder="https://script.google.com/macros/s/.../exec"
+          />
+
+          <label for="apiToken">Jeton API</label>
+          <input id="apiToken" name="apiToken" type="text" />
+
+          <button id="test-button" type="button">Tester Apps Script</button>
+        </fieldset>
+
+        <fieldset>
+          <legend>Connexion FFBoxe</legend>
+
+          <label for="username">Login</label>
+          <input id="username" name="username" type="text" autocomplete="username" />
+
+          <label for="password">Mot de passe</label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            autocomplete="current-password"
+          />
+        </fieldset>
+
+        <button type="submit">Enregistrer</button>
+        <p id="status" role="status"></p>
+      </form>
+    </main>
+
+    <script src="options.js"></script>
+  </body>
+</html>

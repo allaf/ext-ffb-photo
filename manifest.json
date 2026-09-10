@@ -1,21 +1,34 @@
 {
   "manifest_version": 3,
   "name": "FFBoxe - Télécharger la photo",
-  "version": "0.1.0",
-  "description": "Télécharge localement la photo depuis une fiche licencié FFBoxe.",
-  "permissions": ["menus", "downloads", "notifications"],
-  "host_permissions": ["https://extranet.ffboxe.com/*"],
+  "version": "0.2.0",
+  "description": "Télécharge les photos FFBoxe localement ou les synchronise avec Google Sheets.",
+  "permissions": ["menus", "downloads", "notifications", "storage"],
+  "host_permissions": [
+    "https://extranet.ffboxe.com/*",
+    "https://docs.google.com/spreadsheets/*",
+    "https://script.google.com/*",
+    "https://script.googleusercontent.com/*"
+  ],
   "background": {
     "scripts": ["background.js"]
   },
   "content_scripts": [
     {
       "matches": [
-        "https://extranet.ffboxe.com/personnes/fiche/*/*"
+        "https://extranet.ffboxe.com/personnes/fiche/*/infos*"
       ],
       "js": ["content.js"]
+    },
+    {
+      "matches": ["https://docs.google.com/spreadsheets/*"],
+      "js": ["sheet-watcher.js"]
     }
   ],
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": true
+  },
   "icons": {
     "48": "icons/icon.svg",
     "96": "icons/icon.svg"
