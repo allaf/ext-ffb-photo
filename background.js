@@ -2,8 +2,8 @@ const MENU_ID = "download-ffboxe-licensee-picture";
 const PROFILE_URL_PATTERN =
   "https://extranet.ffboxe.com/personnes/fiche/*/infos*";
 const MAX_PARALLEL_JOBS = 3;
-const APPS_SCRIPT_TIMEOUT_MS = 15000;
-let pollingInProgress = false;
+const APPS_SCRIPT_TIMEOUT_MS = 60000;
+let processingInProgress = false;
 
 browser.runtime.onInstalled.addListener(async () => {
   await browser.storage.local.remove(["username", "password"]);
@@ -52,8 +52,8 @@ browser.menus.onClicked.addListener(async (info, tab) => {
 });
 
 browser.runtime.onMessage.addListener((message) => {
-  if (message?.type === "POLL_SHEET_JOBS") {
-    return pollSheetJobs();
+  if (message?.type === "PROCESS_PENDING_JOBS") {
+    return processPendingJobsOnce();
   }
 
   if (message?.type === "TEST_APPS_SCRIPT") {
@@ -63,33 +63,49 @@ browser.runtime.onMessage.addListener((message) => {
   return undefined;
 });
 
-async function pollSheetJobs() {
-  if (pollingInProgress) {
+async function processPendingJobsOnce() {
+  if (processingInProgress) {
     return { ok: true, skipped: true };
   }
 
-  pollingInProgress = true;
+  processingInProgress = true;
 
   try {
     const settings = await loadSettings();
 
     if (!settings.appsScriptUrl || !settings.apiToken) {
-      return { ok: false, configurationMissing: true };
+      return {
+        ok: false,
+        configurationMissing: true,
+        error: "Configure l’URL Apps Script et le jeton dans les préférences."
+      };
     }
 
     const pending = await getPendingJobs(settings);
-    const jobs = pending.slice(0, MAX_PARALLEL_JOBS);
+    let processed = 0;
+    let failed = 0;
 
-    await Promise.all(
-      jobs.map((job) => processSheetJob(job, settings))
-    );
+    for (let index = 0; index < pending.length; index += MAX_PARALLEL_JOBS) {
+      const batch = pending.slice(index, index + MAX_PARALLEL_JOBS);
+      const results = await Promise.all(
+        batch.map((job) => processSheetJob(job, settings))
+      );
 
-    return { ok: true, processed: jobs.length };
+      processed += results.filter((result) => result.ok).length;
+      failed += results.filter((result) => !result.ok).length;
+    }
+
+    return {
+      ok: true,
+      found: pending.length,
+      processed,
+      failed
+    };
   } catch (error) {
     console.error("Échec de la synchronisation Google Sheet", error);
     return { ok: false, error: error.message };
   } finally {
-    pollingInProgress = false;
+    processingInProgress = false;
   }
 }
 
@@ -113,6 +129,8 @@ async function processSheetJob(pendingJob, settings) {
       mimeType: picture.mimeType,
       imageBase64: picture.imageBase64
     });
+
+    return { ok: true };
   } catch (error) {
     console.error(`Échec de la demande ${pendingJob.requestId}`, error);
 
@@ -132,6 +150,8 @@ async function processSheetJob(pendingJob, settings) {
       "Synchronisation impossible",
       `Licence ${pendingJob.userId} : ${error.message}`
     );
+
+    return { ok: false, error: error.message };
   }
 }
 
@@ -194,7 +214,7 @@ async function fetchWithTimeout(url, options) {
   } catch (error) {
     if (error.name === "AbortError") {
       throw new Error(
-        "Apps Script ne répond pas après 15 secondes. Vérifie le déploiement et les autorisations."
+        "Apps Script ne répond pas après 60 secondes. Vérifie le déploiement et les autorisations."
       );
     }
 
