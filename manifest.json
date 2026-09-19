@@ -1,17 +1,20 @@
 {
   "manifest_version": 3,
   "name": "FFBoxe - Télécharger la photo",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Télécharge les photos FFBoxe localement ou les synchronise avec Google Sheets.",
   "permissions": ["menus", "downloads", "notifications", "storage"],
   "host_permissions": [
     "https://extranet.ffboxe.com/*",
-    "https://docs.google.com/spreadsheets/*",
     "https://script.google.com/*",
     "https://script.googleusercontent.com/*"
   ],
   "background": {
     "scripts": ["background.js"]
+  },
+  "action": {
+    "default_title": "FFBoxe - Photos licenciés",
+    "default_popup": "popup/popup.html"
   },
   "content_scripts": [
     {
@@ -19,10 +22,6 @@
         "https://extranet.ffboxe.com/personnes/fiche/*/infos*"
       ],
       "js": ["content.js"]
-    },
-    {
-      "matches": ["https://docs.google.com/spreadsheets/*"],
-      "js": ["sheet-watcher.js"]
     }
   ],
   "options_ui": {
