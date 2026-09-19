@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FFBoxe - Photos licenciés</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Photos licenciés</h1>
+      <p class="description">
+        Lance manuellement le traitement des demandes ajoutées depuis Google
+        Sheets.
+      </p>
+
+      <button id="process-button" type="button">
+        Traiter les demandes en attente
+      </button>
+
+      <p id="status" role="status" aria-live="polite"></p>
+
+      <button id="options-button" class="secondary" type="button">
+        Préférences
+      </button>
+    </main>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
