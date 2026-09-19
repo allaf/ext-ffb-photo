@@ -31,11 +31,13 @@ fonctionnement sur l’extranet.
 3. Ouvrir les préférences de l’extension.
 4. Renseigner l’URL Apps Script terminant par `/exec` et le jeton API.
 5. Cliquer sur **Enregistrer**, puis sur **Tester Apps Script**.
-6. Recharger le Google Sheet après l’installation de l’extension.
+6. Ouvrir la popup de l’extension, puis cliquer sur
+   **Traiter les demandes en attente**.
 
-Lorsque le Google Sheet est ouvert, l’extension vérifie toutes les trois
-secondes les demandes créées depuis le menu **Photos licenciés**. Elle traite
-au maximum trois photos simultanément.
+L’extension n’effectue aucune vérification automatique. Chaque clic dans la
+popup envoie une seule requête `pendingJobs`, traite uniquement les demandes
+retournées par cette requête, par groupes de trois photos simultanées, puis
+s’arrête. Le Google Sheet n’a pas besoin de rester ouvert.
 
 L’extension utilise uniquement la session FFBoxe déjà ouverte dans Firefox. Si
 elle a expiré, il faut se reconnecter sur l’extranet puis relancer la demande.
