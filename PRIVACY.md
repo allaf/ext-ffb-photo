@@ -1,6 +1,6 @@
 # Politique de confidentialité
 
-Dernière mise à jour : 10 septembre 2026.
+Dernière mise à jour : 19 septembre 2026.
 
 L’extension **FFBoxe - Télécharger la photo** est destinée à faciliter la
 récupération des photos de licenciés autorisées depuis l’extranet de la
@@ -23,6 +23,10 @@ ne stocke et ne transmet aucun identifiant ou mot de passe FFBoxe.
 Les informations du licencié et sa photo sont transmises uniquement au Web App
 Google Apps Script renseigné par l’utilisateur. Apps Script peut ensuite les
 enregistrer dans le Google Drive et le Google Sheet de l’utilisateur.
+
+L’extension n’interroge pas Apps Script en arrière-plan. La synchronisation est
+déclenchée uniquement lorsque l’utilisateur clique sur le bouton prévu dans la
+popup de l’extension.
 
 L’extension ne transmet aucune donnée au développeur. Elle ne contient ni outil
 d’analyse d’audience, ni publicité, ni suivi d’utilisation.
@@ -47,5 +51,5 @@ prévues dans le Google Sheet.
 ## Accès limité
 
 L’extension ne demande l’accès qu’aux domaines nécessaires à son
-fonctionnement : l’extranet FFBoxe, Google Sheets, Google Apps Script et le
-domaine utilisé pour les réponses Apps Script.
+fonctionnement : l’extranet FFBoxe, Google Apps Script et le domaine utilisé
+pour les réponses Apps Script.
