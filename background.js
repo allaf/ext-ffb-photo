@@ -56,6 +56,10 @@ browser.runtime.onMessage.addListener((message) => {
     return processPendingJobsOnce();
   }
 
+  if (message?.type === "FILL_PENDING_REGISTRATION") {
+    return fillPendingRegistration();
+  }
+
   if (message?.type === "TEST_APPS_SCRIPT") {
     return testAppsScriptConnection(message.settings);
   }
@@ -174,6 +178,69 @@ async function getPendingJobs(settings) {
   }
 
   return Array.isArray(data.jobs) ? data.jobs : [];
+}
+
+async function fillPendingRegistration() {
+  try {
+    const settings = await loadSettings();
+
+    if (!settings.appsScriptUrl || !settings.apiToken) {
+      throw new Error("Configure l’URL Apps Script et le jeton dans les préférences.");
+    }
+
+    const registration = await getPendingRegistration(settings);
+
+    if (!registration) {
+      throw new Error(
+        "Aucune inscription FFB préparée. Prépare d’abord une ligne ENFANTS dans Google Sheets."
+      );
+    }
+
+    const tabs = await browser.tabs.query({
+      active: true,
+      currentWindow: true
+    });
+    const tab = tabs[0];
+
+    if (!tab?.id || !tab.url?.startsWith("https://extranet.ffboxe.com/")) {
+      throw new Error("Ouvre le formulaire d’inscription FFBoxe dans l’onglet actif.");
+    }
+
+    const result = await browser.tabs.sendMessage(tab.id, {
+      type: "FILL_FFB_REGISTRATION",
+      registration
+    });
+
+    if (!result?.ok) {
+      throw new Error(result?.error || "Le formulaire n’a pas pu être rempli.");
+    }
+
+    return result;
+  } catch (error) {
+    console.error("Échec du remplissage de l’inscription FFBoxe", error);
+    return { ok: false, error: error.message };
+  }
+}
+
+async function getPendingRegistration(settings) {
+  const url = new URL(settings.appsScriptUrl);
+  url.searchParams.set("action", "pendingRegistration");
+  url.searchParams.set("token", settings.apiToken);
+
+  const response = await fetchWithTimeout(url.toString(), {
+    method: "GET",
+    credentials: "include",
+    redirect: "follow",
+    cache: "no-store"
+  });
+
+  const data = await parseJsonResponse(response);
+
+  if (!data.success) {
+    throw new Error(data.error || "Apps Script a refusé la demande.");
+  }
+
+  return data.registration || null;
 }
 
 async function postAppsScript(settings, payload) {
