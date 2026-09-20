@@ -1,27 +1,37 @@
 {
   "manifest_version": 3,
-  "name": "FFBoxe - Télécharger la photo",
-  "version": "0.4.0",
-  "description": "Télécharge les photos FFBoxe localement ou les synchronise avec Google Sheets.",
-  "permissions": ["menus", "downloads", "notifications", "storage"],
+  "name": "FFBoxe - Outils club",
+  "version": "0.5.0",
+  "description": "Télécharge les photos FFBoxe, les synchronise avec Google Sheets et remplit les inscriptions préparées.",
+  "permissions": [
+    "menus",
+    "downloads",
+    "notifications",
+    "storage",
+    "tabs"
+  ],
   "host_permissions": [
     "https://extranet.ffboxe.com/*",
     "https://script.google.com/*",
     "https://script.googleusercontent.com/*"
   ],
   "background": {
-    "scripts": ["background.js"]
+    "scripts": [
+      "background.js"
+    ]
   },
   "action": {
-    "default_title": "FFBoxe - Photos licenciés",
+    "default_title": "FFBoxe - Outils club",
     "default_popup": "popup/popup.html"
   },
   "content_scripts": [
     {
       "matches": [
-        "https://extranet.ffboxe.com/personnes/fiche/*/infos*"
+        "https://extranet.ffboxe.com/*"
       ],
-      "js": ["content.js"]
+      "js": [
+        "content.js"
+      ]
     }
   ],
   "options_ui": {
