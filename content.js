@@ -61,13 +61,16 @@ async function fillFfbRegistration(data) {
       );
     }
 
+    setValue('select[name="ddn_lieu_pays"]', '250');
+    //setValue('select[name="id_departement_naissance"]', '35');
+    setValue('select[name="civilite"]', 'M');
     setValue('input[name="nom"]', data.lastName);
     setValue('input[name="prenom"]', data.firstName);
     setValue('input[name="nom_naissance"]', data.lastName);
     setValue('input[name="ddn"]', data.birthDate, true);
 
     setValue('input[name="adresse[mail]"]', data.email);
-    setValue('input[name="adresse[mobile]"]', data.phone);
+    setValue('input[name="adresse[tel]"]', data.phone);
 
     setValue("#representant_legal_nom", data.parentLastName || data.lastName);
     setValue("#representant_legal_prenom", data.parentFirstName);
