@@ -1,10 +1,10 @@
 const processButton = document.querySelector("#process-button");
+const registrationButton = document.querySelector("#registration-button");
 const optionsButton = document.querySelector("#options-button");
 const status = document.querySelector("#status");
 
 processButton.addEventListener("click", async () => {
-  processButton.disabled = true;
-  optionsButton.disabled = true;
+  setButtonsDisabled(true);
   showStatus("Recherche des demandes en attente…");
 
   try {
@@ -37,14 +37,43 @@ processButton.addEventListener("click", async () => {
   } catch (error) {
     showStatus(error?.message || "Une erreur inconnue est survenue.", false);
   } finally {
-    processButton.disabled = false;
-    optionsButton.disabled = false;
+    setButtonsDisabled(false);
+  }
+});
+
+registrationButton.addEventListener("click", async () => {
+  setButtonsDisabled(true);
+  showStatus("Récupération de l’inscription préparée…");
+
+  try {
+    const result = await browser.runtime.sendMessage({
+      type: "FILL_PENDING_REGISTRATION"
+    });
+
+    if (!result?.ok) {
+      throw new Error(result?.error || "Remplissage impossible.");
+    }
+
+    showStatus(
+      `Formulaire rempli pour ${result.firstName} ${result.lastName}. Vérifie les données avant de valider.`,
+      true
+    );
+  } catch (error) {
+    showStatus(error?.message || "Une erreur inconnue est survenue.", false);
+  } finally {
+    setButtonsDisabled(false);
   }
 });
 
 optionsButton.addEventListener("click", () => {
   browser.runtime.openOptionsPage();
 });
+
+function setButtonsDisabled(disabled) {
+  processButton.disabled = disabled;
+  registrationButton.disabled = disabled;
+  optionsButton.disabled = disabled;
+}
 
 function showStatus(message, success = null) {
   status.textContent = message;
