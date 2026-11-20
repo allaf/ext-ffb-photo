@@ -9,6 +9,9 @@ browser.runtime.onMessage.addListener((message) => {
     return fillFfbRegistration(message.registration);
   }
 
+  return undefined;
+});
+
 function getLicenseePicture() {
   const userId = extractUserId(window.location.pathname);
 
