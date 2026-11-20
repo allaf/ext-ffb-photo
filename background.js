@@ -551,43 +551,63 @@ async function fetchAndParsePalmares(userId) {
 }
 
 function parsePalmaresDocument(doc) {
-  const text = normalizePalmaresText(doc.body?.innerText || "");
+  const table = doc.getElementById("tableCarrière");
 
-  // À remplacer/valider avec le HTML réel de la page palmarès.
-  // On accepte ici les libellés V/D/N ou Victoires/Défaites/Nuls.
-  const wins = findCount(text, [
-    /\b(?:victoires?|v)\s*[:\-]?\s*(\d+)\b/i
-  ]);
-  const losses = findCount(text, [
-    /\b(?:défaites?|defaites?|d)\s*[:\-]?\s*(\d+)\b/i
-  ]);
-  const draws = findCount(text, [
-    /\b(?:nuls?|matchs?\s+nuls?|n)\s*[:\-]?\s*(\d+)\b/i
-  ]);
+  if (!table) {
+    throw new Error("Le tableau Carrière du palmarès n’a pas été trouvé.");
+  }
 
-  if (wins === null || losses === null || draws === null) {
-    throw new Error(
-        "Impossible de reconnaître les victoires, défaites et nuls sur la page palmarès."
+  const rows = Array.from(table.querySelectorAll("tbody tr"));
+
+  const rowForLabel = (label) =>
+    rows.find(
+      (row) =>
+        row.querySelector("td.text-left")?.textContent.trim() === label
     );
-  }
 
-  const bouts = wins + losses + draws;
+  const numericValue = (cell) => {
+    const text = (cell?.textContent || "").replace(/[\\s\\u00a0]/g, "");
+    const value = Number.parseInt(text, 10);
+    return Number.isFinite(value) ? value : 0;
+  };
 
-  return `# ${wins} V # ${losses} D # ${draws} N # ${bouts} combats`;
-}
+  const baCell = (row, side) => {
+    if (!row) {
+      return null;
+    }
 
-function findCount(text, patterns) {
-  for (const pattern of patterns) {
-    const match = text.match(pattern);
-    if (match) return Number(match[1]);
-  }
-  return null;
-}
+    const selector =
+      side === "V"
+        ? "td.colonne-type-combat-ba.big-border-left"
+        : "td.colonne-type-combat-ba.big-border-right";
 
-function normalizePalmaresText(value) {
-  return String(value)
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
+    return row.querySelector(selector);
+  };
+
+  const baCombinedCell = (row) =>
+    row?.querySelector(
+      "td.colonne-type-combat-ba.big-border-left.big-border-right"
+    ) || null;
+
+  const resultRows = ["KO", "Aux points", "Avant limite", "Walkover"];
+
+  const wins = resultRows.reduce(
+    (total, label) =>
+      total + numericValue(baCell(rowForLabel(label), "V")),
+    0
+  );
+
+  const losses = resultRows.reduce(
+    (total, label) =>
+      total + numericValue(baCell(rowForLabel(label), "D")),
+    0
+  );
+
+  const draws = numericValue(baCombinedCell(rowForLabel("Match nul")));
+
+  const totalRow = rowForLabel("Total combats");
+  const totalFromTable = numericValue(baCombinedCell(totalRow));
+  const fights = totalRow ? totalFromTable : wins + losses + draws;
+
+  return `${wins} V / ${losses} D / ${draws} N — ${fights} combats`;
 }
