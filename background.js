@@ -3,7 +3,8 @@ const PROFILE_URL_PATTERN =
   "https://extranet.ffboxe.com/personnes/fiche/*/infos*";
 const MAX_PARALLEL_JOBS = 3;
 const APPS_SCRIPT_TIMEOUT_MS = 60000;
-let processingInProgress = false;
+let photoProcessingInProgress = false;
+let palmaresProcessingInProgress = false;
 
 browser.runtime.onInstalled.addListener(async () => {
   await browser.storage.local.remove(["username", "password"]);
@@ -64,15 +65,19 @@ browser.runtime.onMessage.addListener((message) => {
     return testAppsScriptConnection(message.settings);
   }
 
+  if (message?.type === "PROCESS_PENDING_PALMARES") {
+    return processPendingPalmaresOnce();
+  }
+
   return undefined;
 });
 
 async function processPendingJobsOnce() {
-  if (processingInProgress) {
+  if (photoProcessingInProgress) {
     return { ok: true, skipped: true };
   }
 
-  processingInProgress = true;
+  photoProcessingInProgress = true;
 
   try {
     const settings = await loadSettings();
@@ -109,7 +114,7 @@ async function processPendingJobsOnce() {
     console.error("Échec de la synchronisation Google Sheet", error);
     return { ok: false, error: error.message };
   } finally {
-    processingInProgress = false;
+    photoProcessingInProgress = false;
   }
 }
 
@@ -400,4 +405,189 @@ async function notify(title, message) {
     title,
     message
   });
+}
+
+
+async function processPendingPalmaresOnce() {
+  if (palmaresProcessingInProgress) {
+    return { ok: true, skipped: true };
+  }
+
+  palmaresProcessingInProgress = true;
+
+  try {
+    const settings = await loadSettings();
+
+    if (!settings.appsScriptUrl || !settings.apiToken) {
+      throw new Error(
+          "Configure l’URL Apps Script et le jeton dans les préférences."
+      );
+    }
+
+    const jobs = await getPendingPalmares(settings);
+    let processed = 0;
+    let failed = 0;
+
+    // Traitement séquentiel : une fiche bloquée ne bloque pas toute la file.
+    for (const job of jobs) {
+      const result = await processPalmaresJob(job, settings);
+
+      if (result.ok) {
+        processed += 1;
+      } else {
+        failed += 1;
+      }
+    }
+
+    return {
+      ok: true,
+      found: jobs.length,
+      processed,
+      failed
+    };
+  } catch (error) {
+    console.error("Échec du traitement de la file palmarès", error);
+    return { ok: false, error: error.message };
+  } finally {
+    palmaresProcessingInProgress = false;
+  }
+}
+
+async function getPendingPalmares(settings) {
+  const url = new URL(settings.appsScriptUrl);
+  url.searchParams.set("action", "pendingPalmares");
+  url.searchParams.set("token", settings.apiToken);
+
+  const response = await fetchWithTimeout(url.toString(), {
+    method: "GET",
+    credentials: "include",
+    redirect: "follow",
+    cache: "no-store"
+  });
+
+  const data = await parseJsonResponse(response);
+
+  if (!data.success) {
+    throw new Error(data.error || "Apps Script a refusé la demande palmarès.");
+  }
+
+  return Array.isArray(data.jobs) ? data.jobs : [];
+}
+
+async function processPalmaresJob(pendingJob, settings) {
+  let job = pendingJob;
+
+  try {
+    const claim = await postAppsScript(settings, {
+      action: "claimPalmares",
+      requestId: pendingJob.requestId
+    });
+
+    job = claim.job || pendingJob;
+
+    const palmares = await fetchAndParsePalmares(job.userId);
+
+    await postAppsScript(settings, {
+      action: "completePalmares",
+      requestId: job.requestId,
+      userId: job.userId,
+      palmares
+    });
+
+    return { ok: true };
+  } catch (error) {
+    console.error(
+        `Échec du palmarès pour la demande ${pendingJob.requestId}`,
+        error
+    );
+
+    try {
+      await postAppsScript(settings, {
+        action: "failPalmares",
+        requestId: job.requestId || pendingJob.requestId,
+        error: error.message
+      });
+    } catch (reportError) {
+      console.error(
+          "Impossible de signaler l’échec du palmarès à Apps Script",
+          reportError
+      );
+    }
+
+    return { ok: false, error: error.message };
+  }
+}
+
+async function fetchAndParsePalmares(userId) {
+  if (!userId) {
+    throw new Error("L’identifiant du boxeur est absent de la demande.");
+  }
+
+  const url =
+      `https://extranet.ffboxe.com/personnes/fiche/` +
+      `${encodeURIComponent(userId)}/palmares`;
+
+  const response = await fetch(url, {
+    credentials: "include",
+    redirect: "follow",
+    cache: "no-store"
+  });
+
+  const html = await response.text();
+
+  if (!response.ok) {
+    throw new Error(`La fiche palmarès répond avec HTTP ${response.status}.`);
+  }
+
+  if (isLoginPage(response.url, html)) {
+    throw new Error(
+        "Session FFBoxe expirée. Connecte-toi au site puis relance la demande."
+    );
+  }
+
+  const doc = new DOMParser().parseFromString(html, "text/html");
+
+  return parsePalmaresDocument(doc);
+}
+
+function parsePalmaresDocument(doc) {
+  const text = normalizePalmaresText(doc.body?.innerText || "");
+
+  // À remplacer/valider avec le HTML réel de la page palmarès.
+  // On accepte ici les libellés V/D/N ou Victoires/Défaites/Nuls.
+  const wins = findCount(text, [
+    /\b(?:victoires?|v)\s*[:\-]?\s*(\d+)\b/i
+  ]);
+  const losses = findCount(text, [
+    /\b(?:défaites?|defaites?|d)\s*[:\-]?\s*(\d+)\b/i
+  ]);
+  const draws = findCount(text, [
+    /\b(?:nuls?|matchs?\s+nuls?|n)\s*[:\-]?\s*(\d+)\b/i
+  ]);
+
+  if (wins === null || losses === null || draws === null) {
+    throw new Error(
+        "Impossible de reconnaître les victoires, défaites et nuls sur la page palmarès."
+    );
+  }
+
+  const bouts = wins + losses + draws;
+
+  return `# ${wins} V # ${losses} D # ${draws} N # ${bouts} combats`;
+}
+
+function findCount(text, patterns) {
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match) return Number(match[1]);
+  }
+  return null;
+}
+
+function normalizePalmaresText(value) {
+  return String(value)
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
 }

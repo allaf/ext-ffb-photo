@@ -2,6 +2,45 @@ const processButton = document.querySelector("#process-button");
 const registrationButton = document.querySelector("#registration-button");
 const optionsButton = document.querySelector("#options-button");
 const status = document.querySelector("#status");
+const palmaresButton = document.querySelector("#palmares-button");
+
+palmaresButton.addEventListener("click", async () => {
+  setButtonsDisabled(true);
+  showStatus("Recherche des palmarès en attente…");
+
+  try {
+    const result = await browser.runtime.sendMessage({
+      type: "PROCESS_PENDING_PALMARES"
+    });
+
+    if (!result?.ok) {
+      throw new Error(result?.error || "Traitement des palmarès impossible.");
+    }
+
+    if (result.skipped) {
+      showStatus("Un traitement de palmarès est déjà en cours.");
+      return;
+    }
+
+    if (result.found === 0) {
+      showStatus("Aucun palmarès en attente.", true);
+      return;
+    }
+
+    const failureText = result.failed
+        ? ` ${result.failed} échec(s).`
+        : "";
+
+    showStatus(
+        `${result.processed} palmarès traité(s).${failureText}`,
+        result.failed === 0
+    );
+  } catch (error) {
+    showStatus(error?.message || "Erreur pendant la récupération.", false);
+  } finally {
+    setButtonsDisabled(false);
+  }
+});
 
 processButton.addEventListener("click", async () => {
   setButtonsDisabled(true);
@@ -73,6 +112,7 @@ function setButtonsDisabled(disabled) {
   processButton.disabled = disabled;
   registrationButton.disabled = disabled;
   optionsButton.disabled = disabled;
+  palmaresButton.disabled = disabled;
 }
 
 function showStatus(message, success = null) {

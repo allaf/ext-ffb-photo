@@ -9,8 +9,70 @@ browser.runtime.onMessage.addListener((message) => {
     return fillFfbRegistration(message.registration);
   }
 
+  if (message?.type === "GET_CAREER_RECORD") {
+    return Promise.resolve(getCareerRecord());
+  }
+
   return undefined;
 });
+
+function getCareerRecord() {
+  const table = document.getElementById("tableCarrière");
+
+  if (!table) {
+    return {
+      ok: false,
+      error: "Le tableau Carrière du palmarès n’a pas été trouvé."
+    };
+  }
+
+  const numericValue = (cell) => {
+    const text = (cell.textContent || "").replace(/[\s\u00a0]/g, "");
+    const value = Number.parseInt(text, 10);
+    return Number.isFinite(value) ? value : 0;
+  };
+
+  const rowForLabel = (label) =>
+      Array.from(table.querySelectorAll("tbody tr")).find(
+          (row) => row.querySelector("td.text-left")?.textContent.trim() === label
+      );
+
+  const sumOutcomeColumns = (labels, outcomeClass) =>
+      labels.reduce((total, label) => {
+        const row = rowForLabel(label);
+        if (!row) return total;
+
+        const borderClass =
+            outcomeClass === "V" ? "big-border-left" : "big-border-right";
+
+        const cells = row.querySelectorAll(
+            'td[class*="colonne-type-combat-"]'
+        );
+
+        return total + Array.from(cells)
+            .filter((cell) => cell.classList.contains(borderClass))
+            .reduce((sum, cell) => sum + numericValue(cell), 0);
+      }, 0);
+
+  const sumRow = (label) => {
+    const row = rowForLabel(label);
+    if (!row) return 0;
+
+    return Array.from(
+        row.querySelectorAll('td[class*="colonne-type-combat-"]')
+    ).reduce((sum, cell) => sum + numericValue(cell), 0);
+  };
+
+  const resultRows = ["KO", "Aux points", "Avant limite", "Walkover"];
+
+  return {
+    ok: true,
+    wins: sumOutcomeColumns(resultRows, "V"),
+    losses: sumOutcomeColumns(resultRows, "D"),
+    draws: sumRow("Match nul"),
+    fights: sumRow("Total combats")
+  };
+}
 
 function getLicenseePicture() {
   const userId = extractUserId(window.location.pathname);
