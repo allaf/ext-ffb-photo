@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "FFBoxe - Outils club",
-  "version": "0.6.0",
-  "description": "Télécharge les photos FFBoxe, les synchronise avec Google Sheets et remplit les inscriptions préparées.",
+  "version": "0.7.0",
+  "description": "Télécharge les photos FFBoxe, synchronise les palmarès BA avec Google Sheets et remplit les inscriptions préparées.",
   "permissions": [
     "menus",
     "downloads",
