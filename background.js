@@ -609,5 +609,5 @@ function parsePalmaresDocument(doc) {
   const totalFromTable = numericValue(baCombinedCell(totalRow));
   const fights = totalRow ? totalFromTable : wins + losses + draws;
 
-  return `${wins} - ${losses} - ${draws} (${fights} cbts)`;
+  return `${wins}-${losses}-${draws} (${fights} cbts)`;
 }
