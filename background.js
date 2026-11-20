@@ -566,7 +566,7 @@ function parsePalmaresDocument(doc) {
     );
 
   const numericValue = (cell) => {
-    const text = (cell?.textContent || "").replace(/[\\s\\u00a0]/g, "");
+    const text = (cell?.textContent || "").replace(/[\s\u00a0]/g, "");
     const value = Number.parseInt(text, 10);
     return Number.isFinite(value) ? value : 0;
   };
